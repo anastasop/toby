@@ -41,18 +41,19 @@ go get github.com/anastasop/toby
 ```
 
 ## Usage
-
+```
+#add the files rooted at /mnt/c/snapshot to the database file summaries.db tagged with backup
 toby -t backup -d summaries.db /mnt/c/snapshot
-&nbsp;&nbsp;add the files rooted at /mnt/c/snapshot to the database file summaries.db tagged with backup
 
+#same as above but paths will be saved ad ./snapshot/path. Flag -v causes prefix /mnt/c to be stripped
 toby -t backup -d summaries.db -v /mnt/c /mnt/c/snapshot`
-&nbsp;&nbsp;same as above but paths will be saved ad ./snapshot/path. Flag -v causes prefix /mnt/c to be stripped
 
+#fuzzy search from paths matching main and report them
 toby -d summaries.db -s main
-&nbsp;&nbsp;fuzzy search from paths matching main and report them
 
+#display the sql for the tables of the database
 toby --schema
-&nbsp;&nbsp;display the sql for the tables of the database
+```
 
 ## License
 

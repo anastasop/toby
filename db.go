@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS files (
   mod_time TEXT,      -- the modification time of the file
   mime_type TEXT,     -- the mime type
   exif_time TEXT,     -- if an images and has exif data, this is Exif Date And Time
-  error TEXT          -- if the file could not be read this is a humanized string for the error
+  error TEXT,         -- if the file could not be read this is a humanized string for the error
+
+  UNIQUE(tag, path, sha1)
 );
 
 CREATE INDEX IF NOT EXISTS files_mime_type ON files(mime_type);
@@ -34,7 +36,6 @@ var (
 	db *sql.DB
 
 	insertFileStmt    *sql.Stmt
-	retrieveThumbStmt *sql.Stmt
 	retrievePathsStmt *sql.Stmt
 )
 

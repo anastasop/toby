@@ -63,7 +63,7 @@ func newFileSummary(tag, path string, info os.FileInfo) *fileSummary {
 	}
 	fs.mimeType = http.DetectContentType(hdr)
 
-	if err := sha1Calc(fs, fin); err != nil {
+	if err := addSha1(fs, fin); err != nil {
 		return fs
 	}
 
@@ -74,7 +74,7 @@ func newFileSummary(tag, path string, info os.FileInfo) *fileSummary {
 	return fs
 }
 
-func sha1Calc(fs *fileSummary, rs io.ReadSeeker) error {
+func addSha1(fs *fileSummary, rs io.ReadSeeker) error {
 	if _, err := rs.Seek(0, os.SEEK_SET); err != nil {
 		fs.err = errSeek
 		return err
@@ -110,18 +110,18 @@ func addExifMetadata(fs *fileSummary, rs io.ReadSeeker) {
 var usageMessage = `usage: toby -t tag -d dbfile [options] [<dir> ...]
 
 Walks the directories recursively and for each regular file
-write a summary and a thumbnail(pdf or image/* only) to an
-sqlite3 database. The summary contains the path name, the file type,
-update times and a tag for each file which is used to differentiate
-same paths from different directories.
+write a summary to an sqlite3 database. The summary contains
+the path name, the file type, update times and a tag for each
+file which is used to differentiate same paths from different
+root directories.
 
 Examples:
 
 toby -t backup -d summaries.db /mnt/c/snapshot
-  add the files rooted at /mnt/c/snapshot to the database file summaries.db tagged with backup
+  add the files rooted at /mnt/c/snapshot to the database file summaries.db and tag with backup
 
 toby -t backup -d summaries.db -v /mnt/c /mnt/c/snapshot
-  same as above but paths will be saved ad ./snapshot/path. Flag -v causes prefix /mnt/c to be stripped
+  same as above but paths will be saved as ./snapshot/path. Flag -v causes prefix /mnt/c to be stripped
 
 toby -d summaries.db -s main
   fuzzy search from paths matching main and report them
@@ -180,7 +180,7 @@ func scanDir(tag, root string) error {
 
 		if info.Mode().IsRegular() {
 			if err := saveSummary(newFileSummary(tag, path, info)); err != nil {
-				log.Printf("Failed to save summary for %s: %s", path, err)
+				log.Println(err)
 			}
 		}
 
@@ -190,6 +190,8 @@ func scanDir(tag, root string) error {
 }
 
 func main() {
+	log.SetFlags(0)
+	log.SetPrefix("toby: ")
 	flag.Usage = usage
 	flag.Parse()
 

@@ -12,7 +12,7 @@ import (
 const schema = `-- this table is created in the primary db
 CREATE TABLE IF NOT EXISTS files (
   id INTEGER PRIMARY KEY,
-  tag TEXT NOT NULL,  -- the tag, usually an identifier for the disk
+  tag TEXT NOT NULL,  -- the tag, an identifier for an external disk
   path TEXT NOT NULL, -- the file path
   sha1 TEXT,          -- sha1 hash of file
   size INTEGER,       -- the size of file

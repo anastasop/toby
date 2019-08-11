@@ -15,7 +15,7 @@ The schema is:
 ```
 CREATE TABLE IF NOT EXISTS files (
   id INTEGER PRIMARY KEY,
-  tag TEXT NOT NULL,  -- the tag, usually an identifier for the disk
+  tag TEXT NOT NULL,  -- the tag, an identifier for an external disk
   path TEXT NOT NULL, -- the file path
   sha1 TEXT,          -- sha1 hash of file
   size INTEGER,       -- the size of file
@@ -36,7 +36,7 @@ go get github.com/anastasop/toby
 
 ## Usage
 ```
-#add the files rooted at /mnt/c/snapshot to the database file summaries.db tagged with backup
+#add the files rooted at /mnt/c/snapshot to the database file summaries.db and tag with backup
 toby -t backup -d summaries.db /mnt/c/snapshot
 
 #same as above but paths will be saved ad ./snapshot/path. Flag -v causes prefix /mnt/c to be stripped
@@ -52,3 +52,4 @@ toby --schema
 ## License
 
 Toby is licensed under the [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html)
+

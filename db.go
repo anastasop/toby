@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"path/filepath"
-	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -26,21 +24,9 @@ CREATE TABLE IF NOT EXISTS files (
 
 CREATE INDEX IF NOT EXISTS files_mime_type ON files(mime_type);
 CREATE INDEX IF NOT EXISTS files_tag ON files(tag);
-
--- the thumbnails file is created in the second db
--- expected to be attached as thumbs
-CREATE TABLE IF NOT EXISTS thumbs.thumbnails (
-  id INTEGER PRIMARY KEY,
-  file_id INTEGER,
-  thumbnail BLOB
-);
-
--- CREATE INDEX IF NOT EXISTS thumbnails_file_id ON thumbs.thumbnails(file_id);
 `
 
 const insertFileSql = `INSERT INTO files(tag, path, sha1, size, mod_time, mime_type, exif_time, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-
-const insertThumbSql = `INSERT INTO thumbs.thumbnails(file_id, thumbnail) VALUES (?, ?)`
 
 const retrievePathsSql = `SELECT tag, path FROM files`
 
@@ -48,7 +34,6 @@ var (
 	db *sql.DB
 
 	insertFileStmt    *sql.Stmt
-	insertThumbStmt   *sql.Stmt
 	retrieveThumbStmt *sql.Stmt
 	retrievePathsStmt *sql.Stmt
 )
@@ -58,18 +43,8 @@ func printSchema(w io.Writer) {
 }
 
 func openDatabase(dbFile string) (err error) {
-	dir, baseName := filepath.Split(dbFile)
-	ext := filepath.Ext(baseName)
-	name := strings.TrimSuffix(baseName, ext)
-	thumbsFile := filepath.Join(dir, name+"_thumbnails"+ext)
-
 	if db, err = sql.Open("sqlite3", "file:"+dbFile); err != nil {
 		return fmt.Errorf("Cannot open database %s: %s", dbFile, err)
-	}
-
-	_, err = db.Exec("ATTACH DATABASE '" + thumbsFile + "' AS thumbs")
-	if err != nil {
-		return fmt.Errorf("Cannot attach thumbnails database %s: %v", thumbsFile, err)
 	}
 
 	if _, err = db.Exec(schema); err != nil {
@@ -79,11 +54,6 @@ func openDatabase(dbFile string) (err error) {
 	insertFileStmt, err = db.Prepare(insertFileSql)
 	if err != nil {
 		return fmt.Errorf("Cannot prepare statement to insert files: %s", err)
-	}
-
-	insertThumbStmt, err = db.Prepare(insertThumbSql)
-	if err != nil {
-		return fmt.Errorf("Cannot prepare statement to insert thumbnails: %s", err)
 	}
 
 	retrievePathsStmt, err = db.Prepare(retrievePathsSql)
@@ -97,10 +67,6 @@ func openDatabase(dbFile string) (err error) {
 func closeDatabase(dbFile string) (err error) {
 	if insertFileStmt != nil {
 		insertFileStmt.Close()
-	}
-
-	if insertThumbStmt != nil {
-		insertThumbStmt.Close()
 	}
 
 	if retrievePathsStmt != nil {
@@ -123,7 +89,7 @@ func saveSummary(fs *fileSummary) error {
 	} else {
 		errStr = sql.NullString{Valid: true, String: fs.err.Error()}
 	}
-	res, err := insertFileStmt.Exec(
+	_, err := insertFileStmt.Exec(
 		fs.tag,
 		fs.path,
 		emptyStringToNil(fs.sha1),
@@ -134,17 +100,6 @@ func saveSummary(fs *fileSummary) error {
 		errStr)
 	if err != nil {
 		return fmt.Errorf("Cannot insert file %s: %s", fs.path, err)
-	}
-
-	if fs.thumbnail != nil {
-		id, err := res.LastInsertId()
-		if err != nil {
-			return err
-		}
-		_, err = insertThumbStmt.Exec(id, fs.thumbnail)
-		if err != nil {
-			return fmt.Errorf("Cannot insert thumbnail for file %s of type %s: %s", fs.path, fs.mimeType, err)
-		}
 	}
 
 	return nil

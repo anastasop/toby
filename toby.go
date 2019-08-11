@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"errors"
 	"flag"
@@ -15,37 +14,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/disintegration/imaging"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/sahilm/fuzzy"
-
-	pdflicense "github.com/unidoc/unipdf/v3/common/license"
-	pdfcore "github.com/unidoc/unipdf/v3/core"
-	pdf "github.com/unidoc/unipdf/v3/model"
 )
 
 var (
-	errStat      = errors.New("Stat")
-	errOpen      = errors.New("Open")
-	errRead      = errors.New("Read")
-	errSeek      = errors.New("Seek")
-	errExif      = errors.New("Exif")
-	errExifTime  = errors.New("ExifTime")
-	errImgDecode = errors.New("ImageDecode")
-	errImgEncode = errors.New("ImageEncode")
-	errPdf       = errors.New("PDF")
+	errStat     = errors.New("Stat")
+	errOpen     = errors.New("Open")
+	errRead     = errors.New("Read")
+	errSeek     = errors.New("Seek")
+	errExif     = errors.New("Exif")
+	errExifTime = errors.New("ExifTime")
 )
 
 type fileSummary struct {
-	tag       string
-	path      string
-	sha1      string
-	size      int64
-	modTime   time.Time
-	mimeType  string
-	exifTime  time.Time
-	thumbnail []byte
-	err       error
+	tag      string
+	path     string
+	sha1     string
+	size     int64
+	modTime  time.Time
+	mimeType string
+	exifTime time.Time
+	err      error
 }
 
 func newFileSummary(tag, path string, info os.FileInfo) *fileSummary {
@@ -78,9 +68,7 @@ func newFileSummary(tag, path string, info os.FileInfo) *fileSummary {
 	}
 
 	if strings.HasPrefix(fs.mimeType, "image") {
-		thumbImg(fs, fin)
-	} else if strings.HasPrefix(fs.mimeType, "application/pdf") {
-		thumbPdf(fs, fin)
+		addExifMetadata(fs, fin)
 	}
 
 	return fs
@@ -102,7 +90,7 @@ func sha1Calc(fs *fileSummary, rs io.ReadSeeker) error {
 	return nil
 }
 
-func thumbImg(fs *fileSummary, rs io.ReadSeeker) {
+func addExifMetadata(fs *fileSummary, rs io.ReadSeeker) {
 	if _, err := rs.Seek(0, os.SEEK_SET); err != nil {
 		fs.err = errSeek
 		return
@@ -116,79 +104,6 @@ func thumbImg(fs *fileSummary, rs io.ReadSeeker) {
 		}
 	} else {
 		fs.err = errExif
-	}
-
-	if _, err := rs.Seek(0, os.SEEK_SET); err != nil {
-		fs.err = errSeek
-		return
-	}
-
-	src, err := imaging.Decode(rs, imaging.AutoOrientation(true))
-	if err != nil {
-		fs.err = errImgDecode
-		return
-	}
-	thumb := imaging.Resize(src, *width, 0, imaging.CatmullRom)
-	var w bytes.Buffer
-	if err := imaging.Encode(&w, thumb, imaging.PNG); err != nil {
-		fs.err = errImgEncode
-		return
-	}
-	fs.thumbnail = w.Bytes()
-}
-
-func thumbPdf(fs *fileSummary, rs io.ReadSeeker) {
-	if _, err := rs.Seek(0, os.SEEK_SET); err != nil {
-		fs.err = errSeek
-		return
-	}
-
-	w := pdf.NewPdfWriter()
-
-	r, err := pdf.NewPdfReader(rs)
-	if err != nil {
-		fs.err = errPdf
-		return
-	}
-
-	page, err := r.GetPage(1)
-	if err != nil {
-		fs.err = errPdf
-		return
-	}
-
-	ann := pdf.NewPdfAnnotationText()
-	ann.Contents = pdfcore.MakeString(fs.tag + "@" + fs.path)
-	ann.Rect = pdfcore.MakeArrayFromIntegers([]int{20, 100, 60, 150})
-	page.AddAnnotation(ann.PdfAnnotation)
-
-	err = w.AddPage(page)
-	if err != nil {
-		fs.err = errPdf
-		return
-	}
-
-	var b bytes.Buffer
-	if err := w.Write(&b); err != nil {
-		fs.err = errPdf
-		return
-	}
-
-	fs.thumbnail = b.Bytes()
-}
-
-func setLicense() {
-	if *licenseFile == "" && *customerName == "" {
-		return
-	}
-
-	licenseKey, err := ioutil.ReadFile(*licenseFile)
-	if err != nil {
-		log.Fatal("Cannot read the unidoc license file: ", err)
-	}
-
-	if err := pdflicense.SetLicenseKey(string(licenseKey), *customerName); err != nil {
-		log.Fatal("Cannot set the unidoc license: ", err)
 	}
 }
 
@@ -228,9 +143,6 @@ var tag = flag.String("t", "", "the tag for paths. Used to differentiate same pa
 var volume = flag.String("v", "", "a prefix to strip from paths before saving in the database. Usually the mount point of a disk")
 var schemaOnly = flag.Bool("schema", false, "print the sqlite3 schema and exit")
 var search = flag.String("s", "", "fuzzy search the database for paths matching the argument")
-var width = flag.Int("w", 640, "the width for the thumbnail of images. Aspect ratio is preserved")
-var licenseFile = flag.String("lf", "", "A file with a unidoc(http://unidoc.io/pricing) license")
-var customerName = flag.String("ln", "", "The name of the customer with a unidoc(http://unidoc.io/pricing) license")
 
 func normalizePath(path string) string {
 	if *volume == "" {
@@ -308,8 +220,6 @@ func main() {
 		}
 		os.Exit(0)
 	}
-
-	setLicense()
 
 	for _, root := range flag.Args() {
 		absRoot, err := filepath.Abs(root)

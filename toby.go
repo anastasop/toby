@@ -61,7 +61,7 @@ func newFileSummary(tag, path string, info os.FileInfo) *fileSummary {
 		fs.err = errRead
 		return fs
 	}
-	fs.mimeType = http.DetectContentType(hdr)
+	fs.mimeType = normalizeMimeType(http.DetectContentType(hdr))
 
 	if err := addSha1(fs, fin); err != nil {
 		return fs
@@ -144,6 +144,10 @@ var volume = flag.String("v", "", "a prefix to strip from paths before saving in
 var schemaOnly = flag.Bool("schema", false, "print the sqlite3 schema and exit")
 var search = flag.String("s", "", "fuzzy search the database for paths matching the argument")
 
+func normalizeMimeType(mimeType string) string {
+	return strings.TrimSpace(strings.Split(mimeType, ";")[0])
+}
+
 func normalizePath(path string) string {
 	if *volume == "" {
 		return path
@@ -200,13 +204,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *dbFile == "" || *tag == "" {
+	if *dbFile == "" {
 		usage()
 	} else {
 		if err := openDatabase(*dbFile); err != nil {
 			log.Fatal(err)
 		}
 		defer closeDatabase(*dbFile)
+
 	}
 
 	if *search != "" {
@@ -221,6 +226,10 @@ func main() {
 			fmt.Println(path.tag, path.path)
 		}
 		os.Exit(0)
+	}
+
+	if *tag == "" {
+		usage()
 	}
 
 	for _, root := range flag.Args() {

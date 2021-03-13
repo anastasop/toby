@@ -1,3 +1,4 @@
+A tool i used to cope with multiple external disks. An interesting idea but eventually it was not better than windows explorer or a text file + grep. Nevertheless i still keep the archived project for future reference.
 
 Toby is a tool to help you cope with backups on external removable disks.
 
